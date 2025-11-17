@@ -44,3 +44,21 @@ npm install
 cp .env.example .env
 # Update .env with your MongoDB URI and JWT secret
 npm run dev
+
+## 🚀 Live Demo
+
+The application is successfully deployed on Render:
+
+- **Frontend**: [https://records-management-system-frontend.onrender.com](https://records-management-system-frontend.onrender.com)
+- **Backend API**: [https://records-management-system-backend.onrender.com](https://records-management-system-backend.onrender.com)
+
+### Test Credentials
+- **Admin User**: admin@company.com / admin123
+- **Employee User**: john.doe@company.com / password123
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React.js, Vite, Tailwind CSS
+- **Backend**: Node.js, Express.js, MongoDB
+- **Deployment**: Render
+- **Database**: MongoDB Atlas
