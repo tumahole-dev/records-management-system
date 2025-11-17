@@ -30,6 +30,9 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
+          <div className='flex justify-center mb-4'>
+            <img src="/images/gpg-logo.png" alt="Gauteng Province Logo" className='h-23 w-23 object-contain'/>
+          </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Records Management System
           </h2>
