@@ -47,7 +47,14 @@ app.use(xss());
 app.use(compression());
 
 // CORS middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://your-frontend-app.onrender.com',
+    'https://records-management-system-frontend.onrender.com' // example name
+  ],
+  credentials: true
+}));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)

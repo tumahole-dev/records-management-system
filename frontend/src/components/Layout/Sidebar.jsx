@@ -43,8 +43,8 @@ const Sidebar = ({ open, setOpen }) => {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
           <div className="flex items-center">
-            <Building className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-xl font-bold text-gray-900">RMS</span>
+            <img src="/images/ded-logo.png" alt="Company Logo" className='h-23 w-23 object-contain mt-3'/>
+            {/* <span className="ml-2 font-bold text-gray-900">RMS</span> */}
           </div>
         </div>
 
