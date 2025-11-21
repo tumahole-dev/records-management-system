@@ -1,13 +1,94 @@
 import React from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useQuery } from 'react-query'
+import axios from 'axios'
+import { Users, Building, FolderOpen, FileText, BarChart3, Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
+const StatCard = ({ title, value, icon: Icon, color = 'blue', link }) => {
+  const colors = {
+    blue: 'text-blue-600 bg-blue-100',
+    green: 'text-green-600 bg-green-100', 
+    purple: 'text-purple-600 bg-purple-100',
+    orange: 'text-orange-600 bg-orange-100'
+  }
+
+  const content = (
+    <div className="card p-6 hover:shadow-lg transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`p-3 rounded-lg ${colors[color]}`}>
+            <Icon className="h-6 w-6" />
+          </div>
+          <div className="ml-4">
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  return link ? <Link to={link}>{content}</Link> : content
+}
+
+const QuickAction = ({ title, description, icon: Icon, link, color = 'blue' }) => {
+  const colors = {
+    blue: 'text-blue-600 bg-blue-50 border-blue-200',
+    green: 'text-green-600 bg-green-50 border-green-200',
+    purple: 'text-purple-600 bg-purple-50 border-purple-200'
+  }
+
+  return (
+    <Link 
+      to={link} 
+      className={`block p-4 rounded-lg border-2 ${colors[color]} hover:shadow-md transition-all duration-200 hover:scale-105`}
+    >
+      <div className="flex items-center">
+        <Icon className="h-5 w-5 mr-3" />
+        <div>
+          <h4 className="font-semibold text-gray-900">{title}</h4>
+          <p className="text-sm text-gray-600 mt-1">{description}</p>
+        </div>
+      </div>
+    </Link>
+  )
+}
 
 const Dashboard = () => {
   const { user } = useAuth()
 
-  console.log('📊 Dashboard - User object:', user)
+  // Fetch dashboard statistics
+  const { data: stats, isLoading: statsLoading } = useQuery(
+    'dashboard-stats',
+    async () => {
+      const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`)
+      return response.data
+    }
+  )
+
+  // Fetch recent activities
+  const { data: activities, isLoading: activitiesLoading } = useQuery(
+    'dashboard-activities',
+    async () => {
+      const response = await axios.get(`${API_BASE_URL}/api/dashboard/activities`)
+      return response.data
+    }
+  )
+
+  if (statsLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -15,21 +96,166 @@ const Dashboard = () => {
             Welcome back, {user?.firstName} {user?.lastName}! 
             <span className="ml-2 text-sm text-gray-500 capitalize">({user?.role})</span>
           </p>
-          
-          {/* Debug info - remove after fixing */}
-          <div className="mt-2 p-2 bg-yellow-100 border border-yellow-400 rounded">
-            <p className="text-xs text-yellow-800">
-              <strong>Debug Info:</strong><br/>
-              User exists: {user ? 'Yes' : 'No'}<br/>
-              First Name: {user?.firstName || 'Not found'}<br/>
-              Last Name: {user?.lastName || 'Not found'}<br/>
-              Role: {user?.role || 'Not found'}
-            </p>
+        </div>
+        <div className="flex space-x-3">
+          <Link
+            to="/employees/new"
+            className="btn-primary flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Employee
+          </Link>
+        </div>
+      </div>
+
+      {/* Statistics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Total Employees"
+          value={stats?.totalEmployees || 0}
+          icon={Users}
+          color="blue"
+          link="/employees"
+        />
+        <StatCard
+          title="Active Clients"
+          value={stats?.totalClients || 0}
+          icon={Building}
+          color="green"
+          link="/clients"
+        />
+        <StatCard
+          title="Ongoing Projects"
+          value={stats?.totalProjects || 0}
+          icon={FolderOpen}
+          color="purple"
+          link="/projects"
+        />
+        <StatCard
+          title="Documents"
+          value={stats?.totalDocuments || 0}
+          icon={FileText}
+          color="orange"
+          link="/documents"
+        />
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="card p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <QuickAction
+                title="Manage Employees"
+                description="View and manage employee records"
+                icon={Users}
+                link="/employees"
+                color="blue"
+              />
+              <QuickAction
+                title="Client Management"
+                description="Handle client information and contracts"
+                icon={Building}
+                link="/clients"
+                color="green"
+              />
+              <QuickAction
+                title="Project Tracking"
+                description="Monitor projects and milestones"
+                icon={FolderOpen}
+                link="/projects"
+                color="purple"
+              />
+              <QuickAction
+                title="Generate Reports"
+                description="Create analytical reports"
+                icon={BarChart3}
+                link="/reports"
+                color="blue"
+              />
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="card p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+            <div className="space-y-4">
+              {activitiesLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                </div>
+              ) : activities && activities.length > 0 ? (
+                activities.map((activity, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center">
+                      <div className={`w-2 h-2 rounded-full mr-3 ${
+                        activity.type === 'document_upload' ? 'bg-green-500' : 'bg-blue-500'
+                      }`}></div>
+                      <div>
+                        <span className="text-sm text-gray-700">{activity.title}</span>
+                        <p className="text-xs text-gray-500">{activity.description}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {new Date(activity.timestamp).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No recent activity
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* System Status & User Info */}
+        <div className="space-y-6">
+          <div className="card p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Database</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Connected</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">API Server</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Online</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">File Storage</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Ready</span>
+              </div>
+            </div>
+          </div>
+
+          {/* User Info Card */}
+          <div className="card p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h3>
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </span>
+                </div>
+                <div className="ml-3">
+                  <p className="font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
+                </div>
+              </div>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>Department: {user?.department}</p>
+                <p>Position: {user?.position}</p>
+                <p>Email: {user?.email}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Rest of your dashboard content */}
     </div>
   )
 }
