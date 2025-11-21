@@ -3,7 +3,8 @@ import axios from 'axios'
 
 const AuthContext = createContext()
 
-// Custom hook to use auth context
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
@@ -12,7 +13,6 @@ export const useAuth = () => {
   return context
 }
 
-// Auth Provider Component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -24,13 +24,18 @@ export const AuthProvider = ({ children }) => {
   const checkAuthStatus = async () => {
     try {
       const token = localStorage.getItem('token')
+      console.log('🔐 Auth Check - Token exists:', !!token)
+      
       if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-        const response = await axios.get('/api/auth/me')
+        const response = await axios.get(`${API_BASE_URL}/api/auth/me`)
+        console.log('👤 User data from API:', response.data)
         setUser(response.data)
+      } else {
+        console.log('❌ No token found')
       }
     } catch (error) {
-      console.error('Auth check failed:', error)
+      console.error('🔴 Auth check failed:', error)
       localStorage.removeItem('token')
       delete axios.defaults.headers.common['Authorization']
     } finally {
@@ -40,8 +45,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/api/auth/login', { email, password })
+      console.log('🚀 Login attempt for:', email)
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password })
       const { token, ...userData } = response.data
+      
+      console.log('✅ Login successful, user data:', userData)
       
       localStorage.setItem('token', token)
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
@@ -49,6 +57,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true }
     } catch (error) {
+      console.error('🔴 Login failed:', error)
       return { 
         success: false, 
         message: error.response?.data?.message || 'Login failed' 
@@ -57,6 +66,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
+    console.log('👋 Logging out user:', user)
     localStorage.removeItem('token')
     delete axios.defaults.headers.common['Authorization']
     setUser(null)
@@ -68,6 +78,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     loading
   }
+
+  console.log('🔄 AuthContext state - User:', user, 'Loading:', loading)
 
   return (
     <AuthContext.Provider value={value}>
