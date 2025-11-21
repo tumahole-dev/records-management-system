@@ -139,7 +139,7 @@ const Dashboard = () => {
                 color="purple"
               />
               <QuickAction
-                titleGenerate Reports
+                title="Generate Reports"
                 description="Create analytical reports"
                 icon={BarChart3}
                 link="/reports"
@@ -155,14 +155,14 @@ const Dashboard = () => {
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                  <span className="text-sm text-gray-700">System initialized</span>
+                  <span className="text-sm text-gray-700">Welcome to RMS, {user?.firstName}!</span>
                 </div>
                 <span className="text-xs text-gray-500">Just now</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  <span className="text-sm text-gray-700">Admin user logged in</span>
+                  <span className="text-sm text-gray-700">{user?.firstName} {user?.lastName} logged in</span>
                 </div>
                 <span className="text-xs text-gray-500">Just now</span>
               </div>
@@ -190,21 +190,25 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Upcoming Tasks */}
+          {/* User Info Card */}
           <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Getting Started</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h3>
             <div className="space-y-3">
-              <div className="flex items-center text-sm text-gray-600">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                Add your first employee
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </span>
+                </div>
+                <div className="ml-3">
+                  <p className="font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
+                </div>
               </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
-                Create a client record
-              </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                Start a new project
+              <div className="text-sm text-gray-600">
+                <p>Department: {user?.department}</p>
+                <p>Position: {user?.position}</p>
+                <p>Email: {user?.email}</p>
               </div>
             </div>
           </div>
