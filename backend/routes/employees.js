@@ -7,12 +7,17 @@ const router = express.Router();
 
 // @desc    Get all employees
 // @route   GET /api/employees
-// @access  Private (HR, Admin, Client Manager)
-router.get('/', protect, authorize('admin', 'hr', 'client_manager'), async (req, res) => {
+// @access  Private (All authenticated users, but with data filtering)
+router.get('/', protect, async (req, res) => {
   try {
     const { page = 1, limit = 10, search, department, status } = req.query;
     
     let query = {};
+    
+    // Regular employees can only see basic employee info (not sensitive data)
+    if (req.user.role === 'employee') {
+      query.status = 'Active'; // Only show active employees to regular employees
+    }
     
     if (search) {
       query.$or = [
@@ -22,11 +27,11 @@ router.get('/', protect, authorize('admin', 'hr', 'client_manager'), async (req,
       ];
     }
     
-    if (department) {
+    if (department && req.user.role !== 'employee') {
       query['jobDetails.department'] = department;
     }
     
-    if (status) {
+    if (status && req.user.role !== 'employee') {
       query.status = status;
     }
 

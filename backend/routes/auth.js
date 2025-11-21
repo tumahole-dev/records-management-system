@@ -110,17 +110,17 @@ router.post('/login', [
   }
 });
 
+// Add this route to your existing auth.js file
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    res.json(user);
+    const user = await User.findById(req.user.id).select('-password')
+    res.json(user)
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get user error:', error)
+    res.status(500).json({ message: 'Server error' })
   }
-});
-
+})
 export default router;
