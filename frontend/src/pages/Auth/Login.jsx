@@ -67,7 +67,7 @@ const Login = () => {
             <img 
               src="/images/ded-logo.png" 
               alt="DED Logo" 
-              className="h-20 w-20 object-contain"
+              className="h-25 w-25 object-contain"
             />
           </div>
           <h2 className="mt-2 text-3xl font-extrabold text-gray-900">
