@@ -7,6 +7,8 @@ import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
 import xss from 'xss-clean';
 import compression from 'compression';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -17,6 +19,9 @@ import projectRoutes from './routes/projects.js';
 import documentRoutes from './routes/documents.js';
 import reportRoutes from './routes/reports.js';
 import dashboardRoutes from './routes/dashboard.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load env vars
 dotenv.config();
@@ -95,6 +100,22 @@ app.use((err, req, res, next) => {
   }
   
   res.status(500).json({ message: 'Something went wrong!' });
+});
+
+// Serve static assets in production (for React Router)
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from frontend build
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+  
+  // Handle client-side routing - return index.html for all unknown routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  });
+}
+
+// Your existing 404 handler (keep this for API routes)
+app.use('*', (req, res) => {
+  res.status(404).json({ message: 'Route not found' });
 });
 
 // 404 handler
