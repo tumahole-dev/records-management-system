@@ -14,6 +14,7 @@ import Documents from './pages/Documents/Documents'
 import Reports from './pages/Reports/Reports'
 import Profile from './pages/Profile/Profile'
 import Settings from './pages/Settings/Settings'
+import AddEmployee from './pages/Employees/AddEmployee'
 
 function App() {
   const { user, loading } = useAuth()
@@ -48,6 +49,7 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="employees/new" element={<AddEmployee />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" />} />
