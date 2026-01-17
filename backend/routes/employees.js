@@ -7,37 +7,28 @@ const router = express.Router();
 
 // @desc    Get all employees
 // @route   GET /api/employees
-// @access  Private (All authenticated users, but with data filtering)
+// @access  Private
 router.get('/', protect, async (req, res) => {
-  console.log('User role:', req.user.role);
-  console.log('User ID:', req.user.id);
-  
   try {
+    console.log('📞 GET /api/employees called');
+    console.log('Query params:', req.query);
+    console.log('User role:', req.user.role);
+    
     const { page = 1, limit = 10, search, department, status } = req.query;
+    
+    // Convert to numbers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
+    console.log('Page:', pageNum, 'Limit:', limitNum);
     
     let query = {};
     
-    // Regular employees can only see basic employee info (not sensitive data)
+    // Regular employees can only see basic employee info
     if (req.user.role === 'employee') {
-      query.status = 'Active'; // Only show active employees to regular employees
-      // Limit fields for regular employees
-      const employees = await Employee.find(query)
-        .select('employeeId personalDetails.firstName personalDetails.lastName jobDetails.department jobDetails.position status')
-        .limit(limit * 1)
-        .skip((page - 1) * limit)
-        .sort({ createdAt: -1 });
-
-      const total = await Employee.countDocuments(query);
-
-      return res.json({
-        employees,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        total
-      });
+      query.status = 'Active';
     }
     
-    // Admin/HR/Client Managers see everything
     if (search) {
       query.$or = [
         { 'personalDetails.firstName': { $regex: search, $options: 'i' } },
@@ -54,24 +45,33 @@ router.get('/', protect, async (req, res) => {
       query.status = status;
     }
 
+    console.log('Query:', query);
+
     const employees = await Employee.find(query)
       .populate('user', 'firstName lastName email')
       .populate('jobDetails.manager', 'personalDetails.firstName personalDetails.lastName')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort({ createdAt: -1 });
 
     const total = await Employee.countDocuments(query);
 
+    console.log(`✅ Found ${employees.length} employees out of ${total} total`);
+
     res.json({
+      success: true,
       employees,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Employee fetch error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 
