@@ -9,6 +9,9 @@ const router = express.Router();
 // @route   GET /api/employees
 // @access  Private (All authenticated users, but with data filtering)
 router.get('/', protect, async (req, res) => {
+  console.log('User role:', req.user.role);
+  console.log('User ID:', req.user.id);
+  
   try {
     const { page = 1, limit = 10, search, department, status } = req.query;
     
@@ -17,8 +20,24 @@ router.get('/', protect, async (req, res) => {
     // Regular employees can only see basic employee info (not sensitive data)
     if (req.user.role === 'employee') {
       query.status = 'Active'; // Only show active employees to regular employees
+      // Limit fields for regular employees
+      const employees = await Employee.find(query)
+        .select('employeeId personalDetails.firstName personalDetails.lastName jobDetails.department jobDetails.position status')
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .sort({ createdAt: -1 });
+
+      const total = await Employee.countDocuments(query);
+
+      return res.json({
+        employees,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total
+      });
     }
     
+    // Admin/HR/Client Managers see everything
     if (search) {
       query.$or = [
         { 'personalDetails.firstName': { $regex: search, $options: 'i' } },
@@ -27,11 +46,11 @@ router.get('/', protect, async (req, res) => {
       ];
     }
     
-    if (department && req.user.role !== 'employee') {
+    if (department) {
       query['jobDetails.department'] = department;
     }
     
-    if (status && req.user.role !== 'employee') {
+    if (status) {
       query.status = status;
     }
 
@@ -83,10 +102,10 @@ router.get('/:id', protect, async (req, res) => {
 
 // @desc    Create employee
 // @route   POST /api/employees
-// @access  Private (HR, Admin)
+// @access  Private (HR, Admin, Client Manager)
 router.post('/', [
   protect,
-  authorize('admin', 'hr'),
+  authorize('admin', 'hr', 'client_manager'), // Added client_manager
   body('personalDetails.firstName').notEmpty().withMessage('First name is required'),
   body('personalDetails.lastName').notEmpty().withMessage('Last name is required'),
   body('personalDetails.dateOfBirth').isDate().withMessage('Valid date of birth is required'),
