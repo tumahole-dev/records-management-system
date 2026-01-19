@@ -1,314 +1,503 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import axios from 'axios'
-import toast from 'react-hot-toast'
-import { ArrowLeft, Save } from 'lucide-react'
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+import React, { useState } from 'react';
+import {
+  Box, Button, Paper, Typography, TextField,
+  Grid, FormControl, InputLabel, Select, MenuItem,
+  FormHelperText, Alert, CircularProgress, Stepper,
+  Step, StepLabel, Card, CardContent, Divider
+} from '@mui/material';
+import { Save as SaveIcon, ArrowBack as BackIcon } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import axiosInstance from '../../utils/axiosConfig';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const AddEmployee = () => {
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [activeStep, setActiveStep] = useState(0);
 
-  const onSubmit = async (data) => {
-    setLoading(true)
-    try {
-      const token = localStorage.getItem('token')
-      const response = await axios.post(
-        `${API_BASE_URL}/api/employees`,
-        data,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      )
+  const [formData, setFormData] = useState({
+    // User Account Info
+    email: '',
+    password: 'DefaultPassword123!',
+    role: 'employee',
+    
+    // Personal Information
+    personalDetails: {
+      firstName: '',
+      lastName: '',
+      dateOfBirth: null,
+      gender: '',
+      personalEmail: '',
+      contactNumber: '',
+      address: {
+        street: '',
+        city: '',
+        state: '',
+        country: '',
+        zipCode: ''
+      }
+    },
+    
+    // Job Information
+    employeeId: '',
+    jobDetails: {
+      department: '',
+      position: '',
+      hireDate: null,
+      salary: '',
+      employmentType: 'Full-time',
+      workLocation: 'Office'
+    },
+    
+    // Additional Information
+    qualifications: '',
+    experience: '',
+    notes: '',
+    
+    // Status
+    status: 'Active'
+  });
+
+  const departments = ['IT', 'HR', 'Finance', 'Marketing', 'Operations', 'Sales'];
+  const positions = ['Manager', 'Developer', 'Analyst', 'Designer', 'Accountant', 'HR Specialist'];
+  const roleOptions = user?.role === 'admin' 
+    ? ['admin', 'manager', 'employee'] 
+    : ['employee'];
+
+  const steps = ['Account Setup', 'Personal Information', 'Job Details'];
+
+  const handleChange = (path, value) => {
+    const keys = path.split('.');
+    setFormData(prev => {
+      const newData = { ...prev };
+      let current = newData;
       
-      toast.success('Employee added successfully!')
-      navigate('/employees')
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add employee')
-    } finally {
-      setLoading(false)
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) current[keys[i]] = {};
+        current = current[keys[i]];
+      }
+      
+      current[keys[keys.length - 1]] = value;
+      return newData;
+    });
+  };
+
+  const handleNext = () => {
+    setActiveStep(prev => prev + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep(prev => prev - 1);
+  };
+
+  const validateStep = () => {
+    if (activeStep === 0) {
+      if (!formData.email || !formData.role) {
+        setError('Please fill in all required account fields');
+        return false;
+      }
+      if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        setError('Please enter a valid email address');
+        return false;
+      }
     }
+    if (activeStep === 1) {
+      if (!formData.personalDetails.firstName || !formData.personalDetails.lastName) {
+        setError('Please fill in all required personal information fields');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateStep()) {
+      return;
+    }
+
+    if (activeStep < steps.length - 1) {
+      handleNext();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Check if user has permission to create employees
+      if (user?.role !== 'admin' && user?.role !== 'manager') {
+        setError('You do not have permission to add employees');
+        return;
+      }
+
+      const response = await axiosInstance.post('/api/employees', formData);
+      
+      setSuccess('Employee added successfully!');
+      setTimeout(() => {
+        navigate('/employees');
+      }, 2000);
+      
+    } catch (err) {
+      if (err.response?.status === 403) {
+        setError('You do not have permission to add employees.');
+      } else if (err.response?.status === 409) {
+        setError('Employee with this email already exists.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to add employee. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderStepContent = (step) => {
+    switch (step) {
+      case 0:
+        return (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="Work Email"
+                value={formData.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                helperText="This will be used for login"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => handleChange('password', e.target.value)}
+                helperText="Default password will be sent to employee"
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  value={formData.role}
+                  onChange={(e) => handleChange('role', e.target.value)}
+                  label="Role"
+                >
+                  {roleOptions.map(role => (
+                    <MenuItem key={role} value={role}>
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        );
+
+      case 1:
+        return (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="First Name"
+                value={formData.personalDetails.firstName}
+                onChange={(e) => handleChange('personalDetails.firstName', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="Last Name"
+                value={formData.personalDetails.lastName}
+                onChange={(e) => handleChange('personalDetails.lastName', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date of Birth"
+                  value={formData.personalDetails.dateOfBirth}
+                  onChange={(date) => handleChange('personalDetails.dateOfBirth', date)}
+                  renderInput={(params) => <TextField {...params} fullWidth />}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Gender</InputLabel>
+                <Select
+                  value={formData.personalDetails.gender}
+                  onChange={(e) => handleChange('personalDetails.gender', e.target.value)}
+                  label="Gender"
+                >
+                  <MenuItem value="Male">Male</MenuItem>
+                  <MenuItem value="Female">Female</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Personal Email"
+                value={formData.personalDetails.personalEmail}
+                onChange={(e) => handleChange('personalDetails.personalEmail', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="Contact Number"
+                value={formData.personalDetails.contactNumber}
+                onChange={(e) => handleChange('personalDetails.contactNumber', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Street Address"
+                value={formData.personalDetails.address.street}
+                onChange={(e) => handleChange('personalDetails.address.street', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="City"
+                value={formData.personalDetails.address.city}
+                onChange={(e) => handleChange('personalDetails.address.city', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="State"
+                value={formData.personalDetails.address.state}
+                onChange={(e) => handleChange('personalDetails.address.state', e.target.value)}
+              />
+            </Grid>
+          </Grid>
+        );
+
+      case 2:
+        return (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Employee ID"
+                value={formData.employeeId}
+                onChange={(e) => handleChange('employeeId', e.target.value)}
+                helperText="Leave blank for auto-generation"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Department</InputLabel>
+                <Select
+                  value={formData.jobDetails.department}
+                  onChange={(e) => handleChange('jobDetails.department', e.target.value)}
+                  label="Department"
+                >
+                  {departments.map(dept => (
+                    <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Position</InputLabel>
+                <Select
+                  value={formData.jobDetails.position}
+                  onChange={(e) => handleChange('jobDetails.position', e.target.value)}
+                  label="Position"
+                >
+                  {positions.map(pos => (
+                    <MenuItem key={pos} value={pos}>{pos}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Hire Date"
+                  value={formData.jobDetails.hireDate}
+                  onChange={(date) => handleChange('jobDetails.hireDate', date)}
+                  renderInput={(params) => <TextField {...params} fullWidth required />}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Salary"
+                type="number"
+                value={formData.jobDetails.salary}
+                onChange={(e) => handleChange('jobDetails.salary', e.target.value)}
+                InputProps={{
+                  startAdornment: <span>$</span>,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Employment Type</InputLabel>
+                <Select
+                  value={formData.jobDetails.employmentType}
+                  onChange={(e) => handleChange('jobDetails.employmentType', e.target.value)}
+                  label="Employment Type"
+                >
+                  <MenuItem value="Full-time">Full-time</MenuItem>
+                  <MenuItem value="Part-time">Part-time</MenuItem>
+                  <MenuItem value="Contract">Contract</MenuItem>
+                  <MenuItem value="Intern">Intern</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  label="Status"
+                >
+                  <MenuItem value="Active">Active</MenuItem>
+                  <MenuItem value="Inactive">Inactive</MenuItem>
+                  <MenuItem value="On Leave">On Leave</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Check if user has permission to access this page
+  if (user?.role !== 'admin' && user?.role !== 'manager') {
+    return (
+      <Box p={3}>
+        <Alert severity="error">
+          You do not have permission to access this page. Only admins and managers can add employees.
+        </Alert>
+        <Button
+          startIcon={<BackIcon />}
+          onClick={() => navigate('/employees')}
+          sx={{ mt: 2 }}
+        >
+          Back to Employees
+        </Button>
+      </Box>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/employees')}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">Add New Employee</h1>
-        </div>
-      </div>
+    <Box>
+      <Button
+        startIcon={<BackIcon />}
+        onClick={() => navigate('/employees')}
+        sx={{ mb: 3 }}
+      >
+        Back to Employees
+      </Button>
 
-      {/* Form */}
-      <div className="card p-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Personal Information */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  {...register('personalDetails.firstName', { required: 'First name is required' })}
-                  className="input-field"
-                  placeholder="John"
-                />
-                {errors.personalDetails?.firstName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.personalDetails.firstName.message}</p>
-                )}
-              </div>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Add New Employee
+      </Typography>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  {...register('personalDetails.lastName', { required: 'Last name is required' })}
-                  className="input-field"
-                  placeholder="Doe"
-                />
-                {errors.personalDetails?.lastName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.personalDetails.lastName.message}</p>
-                )}
-              </div>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth *
-                </label>
-                <input
-                  type="date"
-                  {...register('personalDetails.dateOfBirth', { required: 'Date of birth is required' })}
-                  className="input-field"
-                />
-                {errors.personalDetails?.dateOfBirth && (
-                  <p className="mt-1 text-sm text-red-600">{errors.personalDetails.dateOfBirth.message}</p>
-                )}
-              </div>
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Gender *
-                </label>
-                <select
-                  {...register('personalDetails.gender', { required: 'Gender is required' })}
-                  className="input-field"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-                {errors.personalDetails?.gender && (
-                  <p className="mt-1 text-sm text-red-600">{errors.personalDetails.gender.message}</p>
-                )}
-              </div>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Number *
-                </label>
-                <input
-                  type="tel"
-                  {...register('personalDetails.contactNumber', { required: 'Contact number is required' })}
-                  className="input-field"
-                  placeholder="+1234567890"
-                />
-                {errors.personalDetails?.contactNumber && (
-                  <p className="mt-1 text-sm text-red-600">{errors.personalDetails.contactNumber.message}</p>
-                )}
-              </div>
+        <form onSubmit={handleSubmit}>
+          {renderStepContent(activeStep)}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Personal Email *
-                </label>
-                <input
-                  type="email"
-                  {...register('personalDetails.personalEmail', { 
-                    required: 'Email is required',
-                    pattern: {
-                      value: /^\S+@\S+$/i,
-                      message: 'Invalid email address'
-                    }
-                  })}
-                  className="input-field"
-                  placeholder="john.doe@example.com"
-                />
-                {errors.personalDetails?.personalEmail && (
-                  <p className="mt-1 text-sm text-red-600">{errors.personalDetails.personalEmail.message}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Job Information */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Department *
-                </label>
-                <select
-                  {...register('jobDetails.department', { required: 'Department is required' })}
-                  className="input-field"
-                >
-                  <option value="">Select Department</option>
-                  <option value="IT">IT</option>
-                  <option value="HR">HR</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Sales">Sales</option>
-                </select>
-                {errors.jobDetails?.department && (
-                  <p className="mt-1 text-sm text-red-600">{errors.jobDetails.department.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Position *
-                </label>
-                <input
-                  type="text"
-                  {...register('jobDetails.position', { required: 'Position is required' })}
-                  className="input-field"
-                  placeholder="Software Developer"
-                />
-                {errors.jobDetails?.position && (
-                  <p className="mt-1 text-sm text-red-600">{errors.jobDetails.position.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hire Date *
-                </label>
-                <input
-                  type="date"
-                  {...register('jobDetails.hireDate', { required: 'Hire date is required' })}
-                  className="input-field"
-                />
-                {errors.jobDetails?.hireDate && (
-                  <p className="mt-1 text-sm text-red-600">{errors.jobDetails.hireDate.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employment Type *
-                </label>
-                <select
-                  {...register('jobDetails.employmentType', { required: 'Employment type is required' })}
-                  className="input-field"
-                >
-                  <option value="">Select Type</option>
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Contract">Contract</option>
-                  <option value="Temporary">Temporary</option>
-                </select>
-                {errors.jobDetails?.employmentType && (
-                  <p className="mt-1 text-sm text-red-600">{errors.jobDetails.employmentType.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Salary *
-                </label>
-                <input
-                  type="number"
-                  {...register('jobDetails.salary', { 
-                    required: 'Salary is required',
-                    min: { value: 0, message: 'Salary must be positive' }
-                  })}
-                  className="input-field"
-                  placeholder="50000"
-                />
-                {errors.jobDetails?.salary && (
-                  <p className="mt-1 text-sm text-red-600">{errors.jobDetails.salary.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Work Location
-                </label>
-                <input
-                  type="text"
-                  {...register('jobDetails.workLocation')}
-                  className="input-field"
-                  placeholder="Office/Remote"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employee Status *
-                </label>
-                <select
-                  {...register('status', { required: 'Status is required' })}
-                  className="input-field"
-                  defaultValue="Active"
-                >
-                  <option value="Active">Active</option>
-                  <option value="On Leave">On Leave</option>
-                  <option value="Terminated">Terminated</option>
-                  <option value="Resigned">Resigned</option>
-                </select>
-                {errors.status && (
-                  <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <div className="flex justify-end space-x-4 pt-6 border-t">
-            <button
-              type="button"
-              onClick={() => navigate('/employees')}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button
+              disabled={activeStep === 0}
+              onClick={handleBack}
             >
-              Cancel
-            </button>
-            <button
+              Back
+            </Button>
+            
+            <Button
               type="submit"
+              variant="contained"
+              color="primary"
               disabled={loading}
-              className="btn-primary flex items-center disabled:opacity-50"
+              startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
             >
-              <Save className="h-4 w-4 mr-2" />
-              {loading ? 'Saving...' : 'Save Employee'}
-            </button>
-          </div>
+              {activeStep === steps.length - 1 ? 'Save Employee' : 'Next'}
+            </Button>
+          </Box>
         </form>
-      </div>
-    </div>
-  )
-}
+      </Paper>
 
-export default AddEmployee
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Preview
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <Typography variant="body2" color="textSecondary">Name:</Typography>
+              <Typography variant="body1">
+                {formData.personalDetails.firstName} {formData.personalDetails.lastName}
+              </Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography variant="body2" color="textSecondary">Email:</Typography>
+              <Typography variant="body1">{formData.email}</Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography variant="body2" color="textSecondary">Role:</Typography>
+              <Typography variant="body1">{formData.role}</Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography variant="body2" color="textSecondary">Department:</Typography>
+              <Typography variant="body1">{formData.jobDetails.department}</Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};
+
+export default AddEmployee;

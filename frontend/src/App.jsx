@@ -15,6 +15,8 @@ import Reports from './pages/Reports/Reports'
 import Profile from './pages/Profile/Profile'
 import Settings from './pages/Settings/Settings'
 import AddEmployee from './pages/Employees/AddEmployee'
+import ProtectedRoute from './components/ProtectedRoute';
+import Unauthorized from './pages/Unauthorized/Unauthorized';
 
 function App() {
   const { user, loading } = useAuth()
@@ -38,9 +40,26 @@ function App() {
         {user ? (
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="employees" element={<Employees />} />
-            <Route path="employees/:id" element={<EmployeeDetails />} />
+            <Route path="dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+            <Route path="employees" element={
+        <ProtectedRoute allowedRoles={['admin', 'manager']}>
+          <Employees />
+        </ProtectedRoute>
+      } />
+            <Route path="employees/:id" element={
+        <ProtectedRoute>
+          <EmployeeDetails />
+        </ProtectedRoute>
+      } />
+      <Route path="employees/new" element={
+        <ProtectedRoute allowedRoles={['admin', 'manager']}>
+          <AddEmployee />
+        </ProtectedRoute>
+      } />
             <Route path="clients" element={<Clients />} />
             <Route path="clients/:id" element={<ClientDetails />} />
             <Route path="projects" element={<Projects />} />

@@ -1,263 +1,351 @@
-import React from 'react'
-import { useAuth } from '../../contexts/AuthContext'
-import { useQuery } from 'react-query'
-import axios from 'axios'
-import { Users, Building, FolderOpen, FileText, BarChart3, Plus } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import React from 'react';
+import {
+  Box, Grid, Paper, Typography, Card, CardContent,
+  LinearProgress, CircularProgress, Alert, Button
+} from '@mui/material';
+import {
+  People as PeopleIcon,
+  Business as BusinessIcon,
+  Folder as FolderIcon,
+  Description as DescriptionIcon,
+  Add as AddIcon,
+  TrendingUp as TrendingUpIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon
+} from '@mui/icons-material';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useQuery } from 'react-query';
+import axiosInstance from '../../utils/axiosConfig';
+import { format } from 'date-fns';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
-
-const StatCard = ({ title, value, icon: Icon, color = 'blue', link }) => {
+const StatCard = ({ title, value, icon: Icon, color, change, loading }) => {
   const colors = {
-    blue: 'text-blue-600 bg-blue-100',
-    green: 'text-green-600 bg-green-100', 
-    purple: 'text-purple-600 bg-purple-100',
-    orange: 'text-orange-600 bg-orange-100'
-  }
-
-  const content = (
-    <div className="card p-6 hover:shadow-lg transition-shadow duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <div className={`p-3 rounded-lg ${colors[color]}`}>
-            <Icon className="h-6 w-6" />
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  return link ? <Link to={link}>{content}</Link> : content
-}
-
-const QuickAction = ({ title, description, icon: Icon, link, color = 'blue' }) => {
-  const colors = {
-    blue: 'text-blue-600 bg-blue-50 border-blue-200',
-    green: 'text-green-600 bg-green-50 border-green-200',
-    purple: 'text-purple-600 bg-purple-50 border-purple-200'
-  }
+    blue: { bg: '#e3f2fd', text: '#1976d2' },
+    green: { bg: '#e8f5e9', text: '#2e7d32' },
+    purple: { bg: '#f3e5f5', text: '#7b1fa2' },
+    orange: { bg: '#fff3e0', text: '#f57c00' }
+  };
 
   return (
-    <Link 
-      to={link} 
-      className={`block p-4 rounded-lg border-2 ${colors[color]} hover:shadow-md transition-all duration-200 hover:scale-105`}
+    <Card>
+      <CardContent>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography color="textSecondary" variant="body2">
+              {title}
+            </Typography>
+            {loading ? (
+              <CircularProgress size={24} sx={{ mt: 1 }} />
+            ) : (
+              <Typography variant="h4" component="div" sx={{ mt: 1 }}>
+                {value}
+              </Typography>
+            )}
+            {change && (
+              <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                <TrendingUpIcon fontSize="small" sx={{ mr: 0.5 }} />
+                {change} from last month
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              backgroundColor: colors[color]?.bg,
+              borderRadius: '50%',
+              p: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Icon sx={{ color: colors[color]?.text, fontSize: 32 }} />
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+const QuickAction = ({ title, description, icon: Icon, link, color }) => {
+  return (
+    <Card 
+      component={Link} 
+      to={link}
+      sx={{ 
+        textDecoration: 'none',
+        transition: 'transform 0.2s',
+        '&:hover': { transform: 'translateY(-4px)' }
+      }}
     >
-      <div className="flex items-center">
-        <Icon className="h-5 w-5 mr-3" />
-        <div>
-          <h4 className="font-semibold text-gray-900">{title}</h4>
-          <p className="text-sm text-gray-600 mt-1">{description}</p>
-        </div>
-      </div>
-    </Link>
-  )
-}
+      <CardContent>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Icon sx={{ fontSize: 32, color }} />
+          <Box>
+            <Typography variant="h6">{title}</Typography>
+            <Typography variant="body2" color="textSecondary">
+              {description}
+            </Typography>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Dashboard = () => {
-  const { user } = useAuth()
+  const { user, logout } = useAuth();
 
-  // Fetch dashboard statistics
-  const { data: stats, isLoading: statsLoading } = useQuery(
+  // Fetch dashboard stats
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery(
     'dashboard-stats',
     async () => {
-      const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`)
-      return response.data
+      const response = await axiosInstance.get('/api/dashboard/stats');
+      return response.data;
     }
-  )
+  );
 
   // Fetch recent activities
   const { data: activities, isLoading: activitiesLoading } = useQuery(
     'dashboard-activities',
     async () => {
-      const response = await axios.get(`${API_BASE_URL}/api/dashboard/activities`)
-      return response.data
+      const response = await axiosInstance.get('/api/dashboard/activities');
+      return response.data;
     }
-  )
+  );
 
-  if (statsLoading) {
+  if (statsError) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
+      <Box p={3}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load dashboard data. Please check your connection.
+        </Alert>
+        <Button variant="outlined" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Box>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <Box>
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">
-            Welcome back, {user?.firstName} {user?.lastName}! 
-            <span className="ml-2 text-sm text-gray-500 capitalize">({user?.role})</span>
-          </p>
-        </div>
-        <div className="flex space-x-3">
-          <Link
-            to="/employees/new"
-            className="btn-primary flex items-center"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Employee
-          </Link>
-        </div>
-      </div>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Dashboard
+          </Typography>
+          <Typography variant="body1" color="textSecondary">
+            Welcome back, {user?.firstName} {user?.lastName}!
+            <Typography component="span" variant="caption" sx={{ ml: 1, textTransform: 'capitalize' }}>
+              ({user?.role})
+            </Typography>
+          </Typography>
+        </Box>
+        <Box display="flex" gap={2}>
+          {user?.role === 'admin' || user?.role === 'manager' ? (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              component={Link}
+              to="/employees/add"
+            >
+              Add Employee
+            </Button>
+          ) : null}
+        </Box>
+      </Box>
 
       {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Employees"
-          value={stats?.totalEmployees || 0}
-          icon={Users}
-          color="blue"
-          link="/employees"
-        />
-        <StatCard
-          title="Active Clients"
-          value={stats?.totalClients || 0}
-          icon={Building}
-          color="green"
-          link="/clients"
-        />
-        <StatCard
-          title="Ongoing Projects"
-          value={stats?.totalProjects || 0}
-          icon={FolderOpen}
-          color="purple"
-          link="/projects"
-        />
-        <StatCard
-          title="Documents"
-          value={stats?.totalDocuments || 0}
-          icon={FileText}
-          color="orange"
-          link="/documents"
-        />
-      </div>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Total Employees"
+            value={stats?.totalEmployees || 0}
+            icon={PeopleIcon}
+            color="blue"
+            change="+12%"
+            loading={statsLoading}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Active Projects"
+            value={stats?.activeProjects || 0}
+            icon={FolderIcon}
+            color="green"
+            change="+8%"
+            loading={statsLoading}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Departments"
+            value={stats?.totalDepartments || 0}
+            icon={BusinessIcon}
+            color="purple"
+            loading={statsLoading}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Pending Tasks"
+            value={stats?.pendingTasks || 0}
+            icon={DescriptionIcon}
+            color="orange"
+            change="-3%"
+            loading={statsLoading}
+          />
+        </Grid>
+      </Grid>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content */}
+      <Grid container spacing={3}>
         {/* Quick Actions */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <QuickAction
-                title="Manage Employees"
-                description="View and manage employee records"
-                icon={Users}
-                link="/employees"
-                color="blue"
-              />
-              <QuickAction
-                title="Client Management"
-                description="Handle client information and contracts"
-                icon={Building}
-                link="/clients"
-                color="green"
-              />
-              <QuickAction
-                title="Project Tracking"
-                description="Monitor projects and milestones"
-                icon={FolderOpen}
-                link="/projects"
-                color="purple"
-              />
-              <QuickAction
-                title="Generate Reports"
-                description="Create analytical reports"
-                icon={BarChart3}
-                link="/reports"
-                color="blue"
-              />
-            </div>
-          </div>
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Quick Actions
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <QuickAction
+                  title="View Employees"
+                  description="Browse and manage employee records"
+                  icon={PeopleIcon}
+                  link="/employees"
+                  color="#1976d2"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <QuickAction
+                  title="Manage Documents"
+                  description="Handle company documents and files"
+                  icon={DescriptionIcon}
+                  link="/documents"
+                  color="#2e7d32"
+                />
+              </Grid>
+            </Grid>
+          </Paper>
 
-          {/* Recent Activity */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {activitiesLoading ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                </div>
-              ) : activities && activities.length > 0 ? (
-                activities.map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <div className={`w-2 h-2 rounded-full mr-3 ${
-                        activity.type === 'document_upload' ? 'bg-green-500' : 'bg-blue-500'
-                      }`}></div>
-                      <div>
-                        <span className="text-sm text-gray-700">{activity.title}</span>
-                        <p className="text-xs text-gray-500">{activity.description}</p>
-                      </div>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {new Date(activity.timestamp).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-500 py-4">
-                  No recent activity
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+          {/* Recent Activities */}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Recent Activities
+            </Typography>
+            {activitiesLoading ? (
+              <CircularProgress />
+            ) : activities && activities.length > 0 ? (
+              <Box>
+                {activities.slice(0, 5).map((activity, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      py: 2,
+                      borderBottom: index < 4 ? '1px solid #eee' : 'none'
+                    }}
+                  >
+                    <Box sx={{ mr: 2 }}>
+                      {activity.type === 'success' ? (
+                        <CheckCircleIcon color="success" />
+                      ) : (
+                        <WarningIcon color="warning" />
+                      )}
+                    </Box>
+                    <Box flex={1}>
+                      <Typography variant="body2">{activity.description}</Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {format(new Date(activity.timestamp), 'MMM dd, hh:mm a')}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Typography color="textSecondary">No recent activities</Typography>
+            )}
+          </Paper>
+        </Grid>
 
         {/* System Status & User Info */}
-        <div className="space-y-6">
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Database</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Connected</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">API Server</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Online</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">File Storage</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Ready</span>
-              </div>
-            </div>
-          </div>
+        <Grid item xs={12} md={4}>
+          {/* System Status */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              System Status
+            </Typography>
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2">Database</Typography>
+                <CheckCircleIcon fontSize="small" color="success" />
+              </Box>
+              <LinearProgress variant="determinate" value={100} sx={{ mb: 2 }} />
 
-          {/* User Info Card */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h3>
-            <div className="space-y-3">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </span>
-                </div>
-                <div className="ml-3">
-                  <p className="font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
-                  <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-                </div>
-              </div>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p>Department: {user?.department}</p>
-                <p>Position: {user?.position}</p>
-                <p>Email: {user?.email}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2">API Server</Typography>
+                <CheckCircleIcon fontSize="small" color="success" />
+              </Box>
+              <LinearProgress variant="determinate" value={100} sx={{ mb: 2 }} />
 
-export default Dashboard
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2">Storage</Typography>
+                <CheckCircleIcon fontSize="small" color="success" />
+              </Box>
+              <LinearProgress variant="determinate" value={85} />
+            </Box>
+          </Paper>
+
+          {/* User Info */}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Your Profile
+            </Typography>
+            <Box display="flex" alignItems="center" mb={2}>
+              <Box
+                sx={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.main',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mr: 2
+                }}
+              >
+                <Typography variant="h6" color="white">
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle1">
+                  {user?.firstName} {user?.lastName}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {user?.position || 'Employee'}
+                </Typography>
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Department:</strong> {user?.department || 'N/A'}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Email:</strong> {user?.email}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Role:</strong> {user?.role}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+export default Dashboard;
