@@ -1,56 +1,69 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-export const protect = async (req, res, next) => {
+const protect = async (req, res, next) => {
   let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+  // Check if token exists in headers
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
     try {
+      // Get token from header
       token = req.headers.authorization.split(' ')[1];
-      console.log('🔐 Token received');
-      
+
+      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('✅ Token decoded, user ID:', decoded.id);
-      
+
+      // Get user from token
       req.user = await User.findById(decoded.id).select('-password');
-      
+
       if (!req.user) {
-        console.log('❌ User not found');
         return res.status(401).json({ message: 'User not found' });
       }
-      
-      console.log('👤 User authenticated:', req.user.email, 'Role:', req.user.role);
+
+      // Check if user is active
+      if (!req.user.isActive) {
+        return res.status(401).json({ message: 'User account is deactivated' });
+      }
+
       next();
     } catch (error) {
-      console.error('❌ Token verification failed:', error.message);
-      return res.status(401).json({ message: 'Not authorized, token failed' });
+      console.error('Auth middleware error:', error.message);
+      
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ message: 'Invalid token' });
+      }
+      
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token expired' });
+      }
+      
+      res.status(401).json({ message: 'Not authorized' });
     }
   }
 
   if (!token) {
-    console.log('❌ No token provided');
     return res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
 
-export const authorize = (...roles) => {
+// Role-based authorization
+const authorize = (...roles) => {
   return (req, res, next) => {
-    console.log('🔒 Authorization check - Required roles:', roles);
-    console.log('🔒 User role:', req.user?.role);
-    
     if (!req.user) {
-      console.log('❌ No user in request');
-      return res.status(401).json({ message: 'Not authenticated' });
+      return res.status(401).json({ message: 'Not authorized' });
     }
     
     if (!roles.includes(req.user.role)) {
-      console.log(`❌ User role ${req.user.role} is not authorized`);
       return res.status(403).json({ 
-        message: `User role ${req.user.role} is not authorized to access this route` 
+        message: `User role ${req.user.role} is not authorized to access this route`
       });
     }
     
-    console.log('✅ User authorized');
     next();
   };
 };
+
+export { protect, authorize };
