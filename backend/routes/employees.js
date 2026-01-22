@@ -10,67 +10,75 @@ const router = express.Router();
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    console.log('📞 GET /api/employees called');
-    console.log('Query params:', req.query);
-    console.log('User role:', req.user.role);
+    console.log('📞 GET /api/employees - User:', req.user);
     
-    const { page = 1, limit = 10, search, department, status } = req.query;
-    
-    // Convert to numbers
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    
-    console.log('Page:', pageNum, 'Limit:', limitNum);
-    
+    // Build query based on user role
     let query = {};
     
-    // Regular employees can only see basic employee info
+    // Regular employees can only see their own record
     if (req.user.role === 'employee') {
-      query.status = 'Active';
+      // Find employee where user ID matches logged-in user
+      const employeeRecord = await Employee.findOne({ user: req.user.id });
+      if (!employeeRecord) {
+        return res.json({ 
+          success: true, 
+          employees: [],
+          total: 0,
+          message: 'No employee record found for user'
+        });
+      }
+      query = { _id: employeeRecord._id }; // Only return their own record
     }
     
-    if (search) {
-      query.$or = [
-        { 'personalDetails.firstName': { $regex: search, $options: 'i' } },
-        { 'personalDetails.lastName': { $regex: search, $options: 'i' } },
-        { employeeId: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    if (department) {
-      query['jobDetails.department'] = department;
-    }
-    
-    if (status) {
-      query.status = status;
+    // Apply search filters for managers/admins
+    if (req.user.role !== 'employee') {
+      const { search, department, status } = req.query;
+      
+      if (search) {
+        query.$or = [
+          { 'personalDetails.firstName': { $regex: search, $options: 'i' } },
+          { 'personalDetails.lastName': { $regex: search, $options: 'i' } },
+          { employeeId: { $regex: search, $options: 'i' } },
+          { 'personalDetails.personalEmail': { $regex: search, $options: 'i' } }
+        ];
+      }
+      
+      if (department) {
+        query['jobDetails.department'] = department;
+      }
+      
+      if (status) {
+        query.status = status;
+      }
     }
 
-    console.log('Query:', query);
+    console.log('Query for employees:', query);
 
+    // Populate user with correct fields from User model
     const employees = await Employee.find(query)
-      .populate('user', 'firstName lastName email')
-      .populate('jobDetails.manager', 'personalDetails.firstName personalDetails.lastName')
-      .limit(limitNum)
-      .skip((pageNum - 1) * limitNum)
-      .sort({ createdAt: -1 });
+      .populate('user', 'firstName lastName email role department position') // User model fields
+      .populate('jobDetails.manager', 'personalDetails.firstName personalDetails.lastName employeeId')
+      .sort({ createdAt: -1 })
+      .limit(50); // Increased limit for testing
 
     const total = await Employee.countDocuments(query);
 
-    console.log(`✅ Found ${employees.length} employees out of ${total} total`);
+    console.log(`✅ Found ${employees.length} employees`);
 
     res.json({
       success: true,
       employees,
-      totalPages: Math.ceil(total / limitNum),
-      currentPage: pageNum,
-      total
+      total,
+      userRole: req.user.role // For debugging
     });
+    
   } catch (error) {
     console.error('❌ Employee fetch error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
-      error: error.message 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
